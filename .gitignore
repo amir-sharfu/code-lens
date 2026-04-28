@@ -1,0 +1,37 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*
+!.env.example
+
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+codelens.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# CodeLens data
+.codelens/
+
+# Claude Code local settings (keep agents but not local permissions)
+.claude/settings.local.json
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codelens"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "tree-sitter>=0.25",
+    "tree-sitter-python>=0.25",
+    "tree-sitter-javascript>=0.25",
+    "tree-sitter-typescript>=0.23",
+    "pydantic>=2.5",
+    "pathspec>=0.12",
+    "networkx>=3.2",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov"]
+phase3 = [
+    "chromadb>=0.4",
+    "sentence-transformers>=2.7",
+]
+phase4 = [
+    "sqlalchemy>=2.0",
+]
+phase5 = [
+    "typer>=0.12",
+    "watchdog>=4.0",
+    "mcp>=1.0",
+]
+all = [
+    "chromadb>=0.4",
+    "sentence-transformers>=2.7",
+    "sqlalchemy>=2.0",
+    "typer>=0.12",
+    "watchdog>=4.0",
+    "mcp>=1.0",
+]
+
+[project.scripts]
+codelens = "codelens.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["codelens*"]
