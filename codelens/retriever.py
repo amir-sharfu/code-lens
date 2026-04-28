@@ -101,7 +101,7 @@ def pack_context(
         block = _file_block(f, score)
         cost = len(block) + 2  # +2 for the blank line separator
         if used + cost > char_budget:
-            remaining = len(ranked_paths) - len(blocks)
+            remaining = len(ranked_paths) - len(blocks) - 1
             blocks.append(f"# … {remaining} more files omitted (budget reached)")
             break
         blocks.append(block)

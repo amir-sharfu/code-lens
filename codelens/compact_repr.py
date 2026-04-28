@@ -5,6 +5,7 @@ Produces a human-readable, token-efficient summary suitable for LLM context.
 Target: <5K tokens for most repos up to ~500 files.
 """
 from __future__ import annotations
+from pathlib import Path
 from codelens.models import RepoSkeleton, FileSkeleton, SymbolEntry
 
 
@@ -33,9 +34,9 @@ _CORE_NAMES = frozenset({
 
 
 def _score_file(f: FileSkeleton) -> float:
-    """Simple importance proxy until Phase 2 PageRank is available."""
+    """Heuristic importance proxy used when Phase 2 importance scores are not available."""
     parts = set(f.path.lower().replace("\\", "/").split("/"))
-    stem = f.path.split("/")[-1].replace(".py", "").replace(".ts", "").replace(".js", "")
+    stem = Path(f.path).stem
 
     # Heavily penalise test and example files
     if parts & _TEST_INDICATORS or stem.startswith("test_") or stem.endswith("_test"):
@@ -145,7 +146,7 @@ def compact_repr(
 
     header = (
         f"# Repository Architecture\n"
-        f"# {skeleton.repo_path.split('/')[-1].split(chr(92))[-1]}\n"
+        f"# {Path(skeleton.repo_path).name}\n"
         f"# {skeleton.total_files} source files · {lang_summary} · {total_loc:,} total LOC\n"
         f"# {total_symbols} public symbols\n"
     )

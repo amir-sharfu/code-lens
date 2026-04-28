@@ -9,10 +9,10 @@ CodeLens CLI — five commands backed by the full Phase 1-4 pipeline.
 """
 from __future__ import annotations
 import json
+import re
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 try:
     import typer
@@ -229,7 +229,7 @@ def watch(path: Path = _PATH_ARG) -> None:
 @app.command(name="map")
 def map_cmd(
     path: Path = _PATH_ARG,
-    format: str = typer.Option("mermaid", "--format", "-f", help="mermaid or json"),
+    output_format: str = typer.Option("mermaid", "--format", "-f", help="mermaid or json"),
 ) -> None:
     """Print the dependency graph as Mermaid or JSON."""
     cfg = CodeLensConfig.for_repo(path)
@@ -240,16 +240,15 @@ def map_cmd(
         nodes = [r.path for r in FileRepository(session).get_all()]
         edges = [(d.from_file, d.to_file) for d in session.query(DependencyRecord).all()]
 
-    if format == "json":
+    if output_format == "json":
         typer.echo(json.dumps({"nodes": nodes, "edges": edges}, indent=2))
     else:
         lines = ["graph LR"]
         seen: set[tuple[str, str]] = set()
         for src, dst in edges:
             if (src, dst) not in seen:
-                # Sanitise node IDs for Mermaid (replace slashes and dots)
-                s = src.replace("/", "_").replace(".", "_")
-                d = dst.replace("/", "_").replace(".", "_")
+                s = re.sub(r"[^a-zA-Z0-9_]", "_", src)
+                d = re.sub(r"[^a-zA-Z0-9_]", "_", dst)
                 lines.append(f'  {s}["{src}"] --> {d}["{dst}"]')
                 seen.add((src, dst))
         typer.echo("\n".join(lines))

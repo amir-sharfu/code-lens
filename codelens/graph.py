@@ -5,7 +5,7 @@ Replaces the proxy _score_file() heuristic from compact_repr with a
 structural importance score derived from actual import relationships.
 """
 from __future__ import annotations
-from codelens.models import RepoSkeleton, FileSkeleton
+from codelens.models import RepoSkeleton
 from codelens.resolver import resolve
 
 try:
@@ -85,7 +85,7 @@ def _pagerank_python(
             new_rank = {k: v / total for k, v in new_rank.items()}
 
         # Check convergence
-        err = sum(abs(new_rank[n] - prev[n]) for n in nodes)
+        err = sum(abs(new_rank[node] - prev[node]) for node in nodes)
         rank = new_rank
         if err < tol:
             break

@@ -47,10 +47,11 @@ def _is_auto_generated(path: Path) -> bool:
             for pattern in _AUTO_GEN_PATTERNS:
                 if pattern in header:
                     return True
-            rest = f.read()
-        # Count newlines directly: a file with 2000 lines has 2000 newlines
-        total_newlines = (header + rest).count(b"\n")
-        return total_newlines > _MAX_LOC
+            # Count newlines in chunks to avoid loading large files into memory
+            count = header.count(b"\n")
+            for chunk in iter(lambda: f.read(65536), b""):
+                count += chunk.count(b"\n")
+        return count > _MAX_LOC
     except OSError:
         return False
 
@@ -63,7 +64,7 @@ def walk_repo(repo_path: str | Path) -> Iterator[tuple[Path, str]]:
     root = Path(repo_path).resolve()
     spec = _load_gitignore(root)
 
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
         current = Path(dirpath)
 
         dirnames[:] = [

@@ -71,7 +71,7 @@ def _normalize_target(import_from: str, importer_dir: PurePosixPath) -> str | No
         # Strip leading slash if present
         result = result.lstrip("/")
         return result or None
-    except Exception:
+    except (ValueError, TypeError, OverflowError):
         return None
 
 

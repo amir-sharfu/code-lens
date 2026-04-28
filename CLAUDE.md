@@ -82,8 +82,9 @@ walk_repo()  →  parser.parse()  →  FileSkeleton  →  RepoSkeleton
 
 **Walker (`walker.py`)**
 - Uses `dirnames[:] = [...]` in-place mutation so `os.walk` prunes entire subtrees (critical for `node_modules`).
+- `os.walk` is called with explicit `followlinks=False` — symlink traversal is intentionally disabled.
 - All yielded paths are POSIX via `.as_posix()` — guaranteed on Windows.
-- Auto-generated detection: read first 512 bytes for header patterns; only count newlines if no header matched. Files with >5000 newlines are skipped.
+- Auto-generated detection: read first 512 bytes for header patterns; if no header matched, count newlines in 64 KB chunks (not a full file load) to avoid memory spikes on large generated files. Files with >5000 newlines are skipped.
 
 **Resolver (`resolver.py`)**
 - Uses `posixpath.normpath` to collapse `..` segments. `PurePosixPath` does NOT normalize `..` — don't use it for path arithmetic.
@@ -94,6 +95,7 @@ walk_repo()  →  parser.parse()  →  FileSkeleton  →  RepoSkeleton
 - Pure-Python power-iteration PageRank (`_pagerank_python`) — avoids scipy dependency. Do not call `nx.pagerank` directly; networkx 3.6+ will try scipy when numpy is present.
 - Composite importance: `0.5 * pr * len(graph) + 0.2×normalized_in_degree + 0.2×normalized_loc + 0.1×is_entrypoint`, normalized to [0,1]. The `* len(graph)` scales raw PageRank values (which sum to 1.0, so each is ~1/N) into a range comparable to the other [0,1] components.
 - Tier thresholds are percentile-based: 90th=core, 70th=important, 40th=supporting, else peripheral.
+- The convergence loop uses `for node in nodes` — do not rename to `n` (would shadow `n = len(graph)` used in the damping term on the same iteration).
 
 **Embeddings (`embeddings.py`)**
 - All heavy imports (`sentence_transformers`, `openai`) are lazy — inside `__init__`. The module loads without deps installed.
@@ -108,6 +110,7 @@ walk_repo()  →  parser.parse()  →  FileSkeleton  →  RepoSkeleton
 **Retriever (`retriever.py`)**
 - Pipeline: `vector_store.query(k=20)` → re-rank `score × (1 + importance)` → expand top-5 with 1-hop graph neighbours → `pack_context(max_tokens)`.
 - `pack_context` budget: `char_budget = max_tokens * 4`.
+- The "N more files omitted" count is `len(ranked_paths) - len(blocks) - 1` (subtract 1 for the current file that triggered the budget cutoff).
 
 **DB Layer (`db/`)**
 - `IncrementalUpdater` always creates the parent directory of `db_path` — safe to pass any path.
@@ -118,16 +121,28 @@ walk_repo()  →  parser.parse()  →  FileSkeleton  →  RepoSkeleton
 **CLI (`cli.py`)**
 - Boolean flag pattern: `typer.Option(True, "--full/--incremental")` — negation flag is `--incremental`, not `--no-full`.
 - `query` falls back to `compact_repr` (structural only) when phase3 deps are not installed or the vector store is empty.
-- `map` sanitises node IDs for Mermaid by replacing `/` and `.` with `_`.
+- `map` command parameter is named `output_format` (not `format` — avoids shadowing the Python builtin). The `--format` / `-f` CLI flag is unchanged.
+- `map` sanitises Mermaid node IDs with `re.sub(r"[^a-zA-Z0-9_]", "_", path)` — handles hyphens, colons, and all non-alphanumeric characters, not just `/` and `.`.
 
 **MCP Server (`mcp_server.py`)**
 - Tool logic lives in `get_relevant_files_impl`, `get_file_skeleton_impl`, `get_dependency_subgraph_impl` — test these directly without the MCP protocol.
 - `_bfs_subgraph(graph, root, depth)` expands both predecessors and successors at each hop.
+- `_is_safe_repo_path(path)` validates all caller-supplied paths: must be relative, non-empty, and must not start with `..` after `posixpath.normpath`. Called before every `get_file_skeleton` and `get_dependency_subgraph` dispatch.
+- Input caps enforced at dispatch: `query` truncated at 2,000 chars; `path`/`file` at 500 chars; `depth` capped at 5; `max_tokens` capped at 32,000.
 - Repo path: `CODELENS_REPO_PATH` env var (defaults to cwd).
 
 **Config (`config.py`)**
 - `CodeLensConfig.for_repo(path?)` is the single entry point for all path/env resolution.
 - `is_initialized` checks only for the DB file — the vector store may still be empty.
+
+## Security Notes
+
+- `.env` is gitignored — never commit real keys. Use `.env.example` (committed) as the template.
+- `mcp_server.py` validates all path arguments with `_is_safe_repo_path()` before DB lookup.
+- `resolver.py` `_normalize_target` catches only `(ValueError, TypeError, OverflowError)` — not bare `Exception`.
+- `walker.py` uses `followlinks=False` — symlink traversal disabled.
+- `typescript_parser.py` logs a WARNING (not silently drops) when tree-sitter parse fails.
+- `__init__.py` wraps Phase 3/4 imports in `try/except ImportError` — `import codelens` works even without optional extras installed.
 
 ## Public API
 

@@ -15,9 +15,17 @@ The repo path is read from CODELENS_REPO_PATH env var (defaults to cwd).
 from __future__ import annotations
 import json
 import os
+import posixpath
 from pathlib import Path
 
 from codelens.config import CodeLensConfig
+
+
+def _is_safe_repo_path(path: str) -> bool:
+    """Return True only when path is a relative, non-traversing POSIX path."""
+    if not path or posixpath.isabs(path):
+        return False
+    return not posixpath.normpath(path).startswith("..")
 from codelens.db.repository import FileRepository, DependencyRepository
 from codelens.db.schema import get_engine, create_tables, DependencyRecord
 from codelens.models import FileSkeleton, RepoSkeleton
@@ -169,6 +177,8 @@ _TOOL_SCHEMAS = [
                 "max_tokens": {
                     "type": "integer",
                     "default": 4000,
+                    "minimum": 100,
+                    "maximum": 32000,
                     "description": "Approximate token budget for the response.",
                 },
             },
@@ -196,7 +206,7 @@ _TOOL_SCHEMAS = [
             "type": "object",
             "properties": {
                 "file": {"type": "string", "description": "Repo-relative POSIX path."},
-                "depth": {"type": "integer", "default": 2},
+                "depth": {"type": "integer", "default": 2, "minimum": 1, "maximum": 5},
             },
             "required": ["file"],
         },
@@ -232,19 +242,22 @@ async def _serve(cfg: CodeLensConfig) -> None:
         name: str, arguments: dict
     ) -> list[types.TextContent]:
         if name == "get_relevant_files":
-            result = get_relevant_files_impl(
-                arguments["query"],
-                cfg,
-                max_tokens=arguments.get("max_tokens", 4000),
-            )
+            query = str(arguments["query"])[:2000]
+            max_tokens = min(int(arguments.get("max_tokens", 4000)), 32000)
+            result = get_relevant_files_impl(query, cfg, max_tokens=max_tokens)
         elif name == "get_file_skeleton":
-            result = get_file_skeleton_impl(arguments["path"], cfg)
+            path_arg = str(arguments["path"])[:500]
+            if not _is_safe_repo_path(path_arg):
+                result = json.dumps({"error": f"invalid path: {path_arg!r}"})
+            else:
+                result = get_file_skeleton_impl(path_arg, cfg)
         elif name == "get_dependency_subgraph":
-            result = get_dependency_subgraph_impl(
-                arguments["file"],
-                cfg,
-                depth=arguments.get("depth", 2),
-            )
+            file_arg = str(arguments["file"])[:500]
+            if not _is_safe_repo_path(file_arg):
+                result = json.dumps({"error": f"invalid path: {file_arg!r}"})
+            else:
+                depth = min(int(arguments.get("depth", 2)), 5)
+                result = get_dependency_subgraph_impl(file_arg, cfg, depth=depth)
         else:
             result = json.dumps({"error": f"unknown tool: {name}"})
 

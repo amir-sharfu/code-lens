@@ -42,7 +42,9 @@ class TypeScriptParser(BaseParser):
 
         try:
             tree = self._parser.parse(source)
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("tree-sitter parse failed for %s: %s", rel_path, exc)
             return skeleton
 
         root = tree.root_node
