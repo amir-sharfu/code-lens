@@ -1,3 +1,6 @@
+# Private planning docs
+implementation_plan.md
+
 # Secrets — never commit
 .env
 .env.local
