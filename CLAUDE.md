@@ -157,7 +157,7 @@ from codelens import CodeLensConfig
 
 ## Project Agents
 
-Four VoltAgent data-ai sub-agents are installed in `.claude/agents/`:
+Four Claude Code sub-agents are installed in `.claude/agents/`:
 - `data-engineer` — pipeline/ETL architecture
 - `data-scientist` — embedding and vector search strategy
 - `ml-engineer` — production deployment patterns
